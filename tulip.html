@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tulip Simulator</title>
+        <style>
+            html {
+                width: 100%;
+                height: 100%;
+            }
+            body {
+                background-color: darkslategray;
+                transition: all 1s;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100%;
+                width: 100%;
+                margin: 0px;
+            }
+        </style>
+    </head>
+    <body>
+        <div style="position: absolute; top: 0; left: 0; z-index: 1; padding: 10px;">
+            <button onclick="meadow.toggleState();">
+                Toggle Day Cycle
+            </button>
+        </div>
+        <div id="meadow">
+
+        </div>
+    </body>
+    <script>
+
+        class Tulip {
+            x = 0;
+            y = 0;
+            size;
+            meadow;
+            spot;
+            state = '';
+            element;
+
+            constructor(x, y, meadow) {
+                this.x = x;
+                this.y = y;
+                this.size = this.math.getNeutralDistributionValue(12,18);
+
+                this.meadow = meadow;
+                this.spot = document.getElementById(this.meadow.key+`_spot:${this.x}-${this.y}`);
+
+                //create tulip element on screen
+                this.draw();
+                setInterval(() => {
+                    this.checkDaylight();
+                }, 200);
+            }
+
+            checkDaylight() {
+                if (this.meadow.state == 'day') {
+                    this.bloom();
+                } else {
+                    this.fold();
+                }
+            }
+
+            fold() {
+
+                if (this.state == 'folded') {
+                    return;
+                }
+
+                let threshold = this.math.getNeutralDistributionValue(40,60);
+                let value = this.math.getNeutralDistributionValue(0,70);
+                let base = value;
+                let points = {
+                    neighborBloomed: [-1,-1.5],
+                    neighborFolded: [5,10]
+                }
+
+                this.meadow.tulips.forEach(tulip => {
+
+                    let distance = this.math.calculateDistance({x: tulip.x, y: tulip.y}, {x: this.x, y: this.y});
+                    if (distance == 0) {
+                        return;
+                    }
+
+                    if (tulip.state == 'bloomed') {
+                        value += (this.math.getNeutralDistributionValue(...points.neighborBloomed) / Math.pow(distance, 5));
+                    }
+
+                    if (tulip.state == 'folded') {
+                        value += (this.math.getNeutralDistributionValue(...points.neighborFolded) / Math.pow(distance, 5));
+                    }
+                });
+
+                console.log(value-base, value, threshold);
+
+
+                if (value > threshold) {
+                    this.element.style.backgroundColor = 'darkgray';
+                    this.element.style.borderRadius = '95%';
+                    this.state = 'folded';
+                }
+            }
+
+            bloom() {
+
+                if (this.state == 'bloomed') {
+                    return;
+                }
+
+                let threshold = this.math.getNeutralDistributionValue(40,60);
+                let value = this.math.getNeutralDistributionValue(0,65);
+                let base = value;
+                let points = {
+                    neighborBloomed: [5,8],
+                    neighborFolded: [-1,-1.5]
+                }
+
+                this.meadow.tulips.forEach(tulip => {
+
+                    let distance = this.math.calculateDistance({x: tulip.x, y: tulip.y}, {x: this.x, y: this.y});
+                    if (distance == 0) {
+                        return;
+                    }
+
+                    if (tulip.state == 'bloomed') {
+                        value += (this.math.getNeutralDistributionValue(...points.neighborBloomed) / Math.pow(distance, 5));
+                    }
+
+                    if (tulip.state == 'folded') {
+                        value += (this.math.getNeutralDistributionValue(...points.neighborFolded) / Math.pow(distance, 5));
+                    }
+                });
+
+                console.log(value-base, value, threshold);
+
+
+                if (value > threshold) {
+                    this.element.style.backgroundColor = 'orange';
+                    this.element.style.borderRadius = '3px';
+                    this.state = 'bloomed';
+                }
+            }
+
+            draw() {
+
+                //create element
+                this.element = document.createElement('div');
+
+                this.element.style.width = `${this.size}px`;
+                this.element.style.height = `${this.size}px`;
+                this.element.style.transition = 'all 1.4s';
+                this.element.style.backgroundColor = 'orange';
+                this.element.style.borderRadius = '3px';
+                this.state = 'bloomed';
+
+                //reset spot and add tulip
+                this.spot.html = '';
+                this.spot.appendChild(this.element);
+            }
+
+            math = {
+                getNeutralDistributionValue(min, max) {
+                    const mean = (min + max) / 2;
+                    const deviation = (max - min) / 6;
+
+                    // Approximate normal distribution around the mean
+                    let rand = 0;
+                    for (let i = 0; i < 6; i++) {
+                        rand += Math.random() * (max - min) + min;
+                    }
+                    rand /= 6;
+
+                    return Math.max(min, Math.min(max, rand));
+                },
+
+                calculateDistance(point1, point2) {
+                    const x1 = point1.x;
+                    const y1 = point1.y;
+                    const x2 = point2.x;
+                    const y2 = point2.y;
+
+                    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+                }
+            }
+        }
+
+        class Meadow {
+            container;
+            key;
+            grid;
+            state = 'day';
+            tulips = [];
+
+            constructor(selector, grid) {
+                this.container = document.querySelector(selector);
+                this.grid = grid;
+                this.key = Math.random().toString(36).substring(2, 12);
+            }
+
+            sow(grid = false) {
+
+                //reset tulips array
+                this.tulips = [];
+
+                //use default grid if no grid specified
+                if (grid == false) {
+                    grid = this.grid;
+                }
+
+                //add grid style to Meadow container
+                this.container.style.display = 'grid';
+                this.container.style.width = '500px';
+                this.container.style.height = '500px';
+                this.container.style.gap = '10px';
+                this.container.style.gridTemplateColumns = `repeat(${this.grid.length > 0 ? this.grid.length : 5}, 1fr)`;
+                this.container.style.gridTemplateRows = `repeat(${this.grid[0]?.length ?? 5}, 1fr)`;
+
+                //create tulips
+                grid.forEach((row, x) => {
+                    row.forEach((haveTulip, y) => {
+
+                        //create spot div
+                        const spot = document.createElement('div');
+                        spot.id = this.key+`_spot:${x}-${y}`;
+                        spot.style.display = 'flex';
+                        spot.style.justifyContent = 'center';
+                        spot.style.alignItems = 'center';
+                        this.container.appendChild(spot);
+
+                        //create tulip
+                        if (haveTulip == 1) {
+                            this.tulips.push(new Tulip(x, y, this));
+                        }
+                    });
+                });
+            }
+
+            nightfall() {
+                document.body.style.backgroundColor = '#1b2727';
+            }
+
+            sunrise() {
+                document.body.style.backgroundColor = 'darkslategray';
+            }
+
+            toggleState() {
+                this.state = this.state == 'day' ? 'night' : 'day';
+                if (this.state == 'day') {
+                    this.sunrise();
+                } else {
+                    this.nightfall();
+                }
+            }
+        }
+
+        //initialize filed
+        const meadow = new Meadow('#meadow', [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+        ]);
+        meadow.sow();
+    </script>
+</html>
